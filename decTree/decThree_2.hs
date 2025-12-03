@@ -17,4 +17,12 @@ subsequences12 = map subsequence12
 subsequence12 :: (Ord c, Num c, Read c) => [Char] -> c
 subsequence12 bank = foldl' max 0 . map read . filter (\xs -> length xs == 12) $ subs
   where
-    subs = subsequences bank
+    subs = subsequencesOfLength 12 bank
+
+
+subsequencesOfLength :: Int -> [a] -> [[a]]
+subsequencesOfLength 0 _  = [[]]  -- Base case: subsequence of length 0 is an empty list
+subsequencesOfLength _ [] = []   -- Base case: no subsequences if the list is empty
+subsequencesOfLength n (x:xs)
+  | n < 0     = []               -- If length is negative, return empty list
+  | otherwise = map (x:) (subsequencesOfLength (n-1) xs) ++ subsequencesOfLength n xs
