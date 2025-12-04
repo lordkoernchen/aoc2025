@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 import Data.List (tails, subsequences, foldl')
 
 main :: IO ()
