@@ -26,29 +26,35 @@ removeAllPossible = countMovable . doMarkAndRemove
 
 
 markMovable :: Int -> Area -> Area
-markMovable neighborLimit area = marked
+markMovable neighborLimit area = [[mark posX posY val | (posX, val) <- indexed row] | (posY, row) <- indexed area]
   where
     maxX = (length . head $ area) -1
     maxY = length area - 1
-    positionsX = [0 .. maxX]
-    positionsY = [0 .. maxY]
-
-    allPositions = [(x, y) | x <- positionsX, y <- positionsY]
-
-    indices = [-1, 0, 1]
-    neighborsIndices posX posY = [(posX + x, posY + y) | x <- indices, y <- indices, not (x == 0 && y == 0), (posX + x, posY + y) `elem` allPositions]
-
-    addIndex = zip [0 ..]
-    areaWithIndices = addIndex . map addIndex $ area
-
-    marked = [[mark posX posY val | (posX, val) <- row] | (posY, row) <- areaWithIndices]
 
     mark posX posY val
       | val == empty = val
       | val == scroll =
-        let numberOfNeighborScrolls = length . filter (\(x, y) -> ((area !! y) !! x) == scroll) $ neighborsIndices posX posY
+        let numberOfNeighborScrolls = length . filter (\(x, y) -> ((area !! y) !! x) == scroll) $ neighborsIndices maxX maxY posX posY
          in if numberOfNeighborScrolls < neighborLimit then movableScroll else scroll
       | otherwise = val
+
+neighborsIndices :: Int -> Int -> Int -> Int -> [(Int, Int)]
+neighborsIndices maxX maxY posX posY = [(posX + x, posY + y) 
+                                       | x <- indexModifiers
+                                       , y <- indexModifiers
+                                       , not (x == 0 && y == 0)
+                                       , inLimits maxX (posX + x)
+                                       , inLimits maxY (posY + y)
+                                       ]
+
+inLimits :: (Ord a, Num a) => a -> a -> Bool
+inLimits max val = 0 <= val && val <= max
+
+indexModifiers :: [Int]
+indexModifiers = [-1, 0, 1]
+
+indexed :: [b] -> [(Int, b)]
+indexed = zip [0 ..]
 
 countMovable :: Area -> Int
 countMovable = length . filter (== movableScroll) . concat
