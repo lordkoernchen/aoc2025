@@ -1,12 +1,12 @@
-import Data.List (foldl', transpose, uncons, groupBy)
-import Data.Char (isSpace, isNumber)
+import Data.Char (isNumber, isSpace)
+import Data.List (foldl', groupBy, transpose, uncons)
 
 main = do
   content <- readFile "realInput.txt"
---   content <- readFile "testInput.txt"
+  --   content <- readFile "testInput.txt"
   let contentLines = lines content
   -- simple solution (part 1)
-  let tasks =transpose . map words $ contentLines
+  let tasks = transpose . map words $ contentLines
   print . sum . map (solve . uncons . reverse) $ tasks
   -- complex solution (part 2)
   let numOfNumberLines = length . filter (any isNumber) $ contentLines
@@ -33,4 +33,4 @@ solve (Just (op, nums)) = foldl' (f op) (neutral op) $ map read nums
 
     f ('+' : _) = (+)
     f ('*' : _) = (*)
-    f  op = error ("unknown op" ++ show op)
+    f op = error ("unknown op" ++ show op)
