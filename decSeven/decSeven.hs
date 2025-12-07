@@ -21,6 +21,7 @@ main = do
   let totalTimelines = determineAllTimelines $ lines content
   print $ "total timelines: " ++ show totalTimelines
 
+-- fast version with reducing evaluated timelines and keeping track of timelines that went through a certain position
 determineAllTimelines :: [String] -> Int
 determineAllTimelines area = foldl' (\ acc (_, count) -> acc + count) 0 $ traceTimelines [(initialBeamPosition, 1)] otherRows
   where
@@ -49,6 +50,7 @@ determineAllTimelines area = foldl' (\ acc (_, count) -> acc + count) 0 $ traceT
       | snd (row !! idx) == splitter = [((idx - 1, val), count), ((idx + 1, val), count)]
       | otherwise = [beamPos]
 
+-- slow version with exponential runtime!
 determineAllTimelinesSlow :: [String] -> [Point]
 determineAllTimelinesSlow area = traceTimelines [initialBeamPosition] otherRows
   where
