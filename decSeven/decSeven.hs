@@ -1,8 +1,11 @@
+import Data.List (foldl', groupBy)
 type Point = (Int, Char)
 
 type Row = [Point]
 
 type Grid = [Row]
+
+type Timeline  = (Point, Int)
 
 main :: IO ()
 main = do
@@ -15,11 +18,39 @@ main = do
   print totalSplits
 
   -- determine total number of timelines (paths that are created)
-  let allTimelineEnds = determineAllTimelines $ lines content
-  print $ "total timelines: " ++ (show . length $ allTimelineEnds)
+  let totalTimelines = determineAllTimelines $ lines content
+  print $ "total timelines: " ++ show totalTimelines
 
-determineAllTimelines :: [String] -> [Point]
-determineAllTimelines area = traceTimelines [initialBeamPosition] otherRows
+determineAllTimelines :: [String] -> Int
+determineAllTimelines area = foldl' (\ acc (_, count) -> acc + count) 0 $ traceTimelines [(initialBeamPosition, 1)] otherRows
+  where
+    -- add coordinates
+    areaWithIndices :: Grid
+    areaWithIndices = zip [0 ..] <$> area
+
+    firstRow :: Row
+    firstRow = head areaWithIndices
+
+    initialBeamPosition = head . filter (\(_, x) -> x == start) $ firstRow
+
+    otherRows :: Grid
+    otherRows = tail areaWithIndices
+
+    traceTimelines :: [Timeline] -> [Row] -> [Timeline]
+    traceTimelines [] _ = []
+    traceTimelines currentTimelines [] = currentTimelines
+    traceTimelines currentTimelines (currentRow : rows) =
+      let groupedNextTimelines = groupBy (\a b -> fst a == fst b) $ concatMap (`determineNextTimelines` currentRow) currentTimelines
+          nextTimelines = (\g -> foldl' (\(a, countA) (_, countB) -> (a, countA + countB)) (head g) (tail g)) <$> groupedNextTimelines
+       in traceTimelines nextTimelines rows
+
+    determineNextTimelines :: Timeline -> Row -> [Timeline]
+    determineNextTimelines beamPos@((idx, val), count) row
+      | snd (row !! idx) == splitter = [((idx - 1, val), count), ((idx + 1, val), count)]
+      | otherwise = [beamPos]
+
+determineAllTimelinesSlow :: [String] -> [Point]
+determineAllTimelinesSlow area = traceTimelines [initialBeamPosition] otherRows
   where
     -- add coordinates
     areaWithIndices :: Grid
