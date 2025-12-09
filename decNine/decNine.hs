@@ -23,90 +23,53 @@ main = do
   print . (\r -> (r, area r)) $ head rectAnglesBySize
 
 
-  -- the rest doesn't produces the correct result. (to small). Larger valid rectangles get somehow filtered
-  let !polygonBorders = sortBy (\v1 v2 -> len v2 `compare` len v1) $ alignVector <$> borderVectors points
+  -- the rest doesn't produces the correct result. (too small). Larger valid rectangles get somehow filtered
+  let !polygonBorders = sortBy (\v1 v2 -> lenVec v2 `compare` lenVec v1) $ alignVector <$> borderVectors points
 
   let !(horizontalBorders, verticalBorders) = partition isHorizontal polygonBorders
 
   let minPoint = (0, 0)
   let maxPoint = (100000, 100000)
 
-  let validRectAngles = filter (validRectAngle minPoint maxPoint polygonBorders horizontalBorders verticalBorders) rectAnglesBySize
+  let rectAnglesWithoutInnerPoints = filter (not . containsOtherPoints points) rectAnglesBySize
+
+  let rectWithValidOuterPoints = filter (allPointsInside polygonBorders) rectAnglesWithoutInnerPoints
+
+  let validRectAngles = filter (not . intersectedBy polygonBorders) rectWithValidOuterPoints
 
   print "largest fully contained rectAngle"
   print . (\r -> (r, area r)) $ maximumBy (\r1 r2 -> area r1 `compare` area r2) validRectAngles
 
-len :: ((Int, Int), (Int, Int)) -> Float
-len ((x1,y1), (x2,y2)) = sqrt (int2Float a + int2Float b)
-  where
-    a = (x1 - x2)*(x1 - x2)
-    b = (y1 - y2)*(y1 - y2)
+containsOtherPoints :: [Point] -> RectAngle -> Bool
+containsOtherPoints ps (p1@(x1,y1), p2@(x2,y2)) = any (\p@(x,y) -> (p /= p1 && p /= p2) && x1 < x && x < x2 && y1 < y && y < y2) ps
 
-validRectAngle :: Point -> Point -> [(Point, Point)] -> [(Point, Point)] -> [(Point, Point)] -> RectAngle -> Bool
-validRectAngle !minP !maxP !borders !horizontalBorders !verticalBorders !rect = allCornersValid && allBordersValid
-  where
-    (c1, c2) = rect
-    !allCorners = corners rect
+intersectedBy :: [(Point, Point)] -> RectAngle -> Bool
+intersectedBy bs r = let rectBorders = alignVector <$> borderVectors (corners r)
+                      in any (\(_, hits) -> (not . null) hits) $ untouchingIntersectionsPerRectBorder rectBorders bs
 
-    validCorner :: Point -> Bool
-    validCorner !c = onBorder borders c || insideBorder c
+untouchingIntersectionsPerRectBorder :: [(Point, Point)] -> [(Point, Point)] -> [((Point, Point), [(Point, Point)])]
+untouchingIntersectionsPerRectBorder !bs !rs = [(r, [b | b <- bs, not (touching b r), existsCommonPoint b r]) | r <- rs]
+
+allPointsInside :: [(Point, Point)] -> RectAngle -> Bool
+allPointsInside bs r = all validCorner allCorners
+  where
+    !allCorners = corners r
+    validCorner !c = onBorder bs c || insideBorder c
+
+    minPoint = (0, 0)
+    maxPoint = (100000, 100000)
 
     insideBorder :: Point -> Bool
     insideBorder p =
-      let rs = rays p minP maxP
-          intersects = (\(_, is) -> length is) <$> intersections borders rs
+      let rs = rays p minPoint maxPoint
+          intersects = (\(_, is) -> length is) <$> intersections bs rs
        in all (\l -> l > 0 && odd l) intersects
-
-    allCornersValid = all validCorner allCorners
-
-    rectBorders = alignVector <$> borderVectors allCorners
-
-    validCorner' :: [(Point, Point)] -> Point -> Bool
-    validCorner' bs c = insideBorder c
-
-    allBordersValid =
-      all
-        ( \v ->
-            null $ untouchingOrthogonalIntersections horizontalBorders verticalBorders v
-            -- let intPoints = orthogonalIntersectionPoints horizontalBorders verticalBorders v
-            --     relevantBs = if isHorizontal v then verticalBorders else horizontalBorders
-            --     neighborsToCheck = map (neighboringPoints v) intPoints
-            --  in all (all (\c -> onBorder [v] c && validCorner' relevantBs c)) neighborsToCheck
-        )
-        rectBorders
 
 onBorder :: [(Point, Point)] -> Point -> Bool
 onBorder bs c = any (contains c) bs
 
 contains :: Point -> (Point, Point) -> Bool
 contains (x, y) ((x1, y1), (x2, y2)) = x1 <= x && x <= x2 && y1 <= y && y <= y2
-
-neighboringPoints :: (Point, Point) -> Point -> [Point]
-neighboringPoints ((x1, y1), (x2, y2)) (x', y')
-  | x1 == x2 = [(x', y) | y <- [y' - 1, y' + 1]]
-  | y1 == y2 = [(x, y') | x <- [x' - 1, x' + 1]]
-  | otherwise = error "diagonal vector"
-
-orthogonalIntersectionPoints :: [(Point, Point)] -> [(Point, Point)] -> (Point, Point) -> [Point]
-orthogonalIntersectionPoints !horizontalBorders !verticalBorders !v =
-  let !hitBs = orthogonalIntersections horizontalBorders verticalBorders v
-   in intersectionPoint v <$> hitBs
-
-intersectionPoint :: (Point, Point) -> (Point, Point) -> Point
-intersectionPoint a@((x1, y1), (x1', y1')) b@((x2, y2), (x2', y2'))
-  | x1 == x1' && y2 == y2' = (x1, y2)
-  | y1 == y1' && x2 == x2' = (x2, y1)
-  | otherwise = error $ "no intersectionPoint for " ++ show a ++ " " ++ show b
-
-untouchingOrthogonalIntersections :: [(Point, Point)] -> [(Point, Point)] -> (Point, Point) -> [(Point, Point)]
-untouchingOrthogonalIntersections !horizontalBorders !verticalBorders !v =
-  let !vHorizontal = isHorizontal v
-   in filter (\x -> not (touching v x) && existsCommonPoint v x) $ if not vHorizontal then horizontalBorders else verticalBorders
-
-orthogonalIntersections :: [(Point, Point)] -> [(Point, Point)] -> (Point, Point) -> [(Point, Point)]
-orthogonalIntersections !horizontalBorders !verticalBorders !v =
-  let !vHorizontal = isHorizontal v
-   in filter (existsCommonPoint v) $ if not vHorizontal then horizontalBorders else verticalBorders
 
 touching :: (Point, Point) -> (Point, Point) -> Bool
 touching (p1, p2) (p3, p4) = p1 == p3 || p1 == p4 || p2 == p3 || p2 == p4
@@ -162,3 +125,9 @@ alignVector v@(p1@(x1, y1), p2@(x2, y2))
   | y1 == y2 && x1 <= x2 = v
   | y1 == y2 && x1 > x2 = (p2, p1)
   | otherwise = v
+
+lenVec :: ((Int, Int), (Int, Int)) -> Float
+lenVec ((x1,y1), (x2,y2)) = sqrt (int2Float a + int2Float b)
+  where
+    a = (x1 - x2)*(x1 - x2)
+    b = (y1 - y2)*(y1 - y2)
